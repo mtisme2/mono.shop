@@ -1,0 +1,192 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mono Shop</title>
+  <!-- QRCode Library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    /* CSS พื้นฐาน */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+    body { background-color: #f8f8f8; text-align: center; }
+    header { background: #ff69b4; color: white; padding: 20px; font-size: 24px; }
+    .btn { padding: 10px; margin: 5px; border: none; cursor: pointer; }
+    .btn-primary { background: #ff69b4; color: white; }
+    .btn-success { background: green; color: white; }
+    .btn-danger { background: red; color: white; }
+    .container { background: white; margin: 10px auto; padding: 15px; width: 90%; max-width: 400px; border-radius: 10px; }
+    .hidden { display: none; }
+    .low-stock { color: red; font-weight: bold; }
+    input { padding: 5px; margin: 5px; }
+    .order-status { font-weight: bold; }
+    table { border-collapse: collapse; width: 100%; }
+    table, th, td { border: 1px solid #ddd; padding: 8px; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    Mono Shop
+    <button class="btn btn-primary" onclick="openLogin()">เข้าสู่ระบบ</button>
+    <button class="btn btn-primary" onclick="openAdminLogin()">แอดมิน</button>
+  </header>
+
+  <!-- Login Section สำหรับผู้ใช้ทั่วไป -->
+  <div class="container login-section hidden">
+    <h2>เข้าสู่ระบบ</h2>
+    <input type="text" id="username" placeholder="ชื่อผู้ใช้">
+    <input type="password" id="password" placeholder="รหัสผ่าน">
+    <button class="btn btn-primary" onclick="login()">เข้าสู่ระบบ</button>
+    <button class="btn btn-success" onclick="register()">สมัครสมาชิก</button>
+  </div>
+
+  <!-- Product List Section -->
+  <div class="container">
+    <h2>สินค้า</h2>
+    <div id="product-list"></div>
+  </div>
+
+  <!-- Cart Section -->
+  <div class="container cart">
+    <h2>ตะกร้าสินค้า</h2>
+    <div id="cart-items"></div>
+    <p>ยอดรวม: ฿<span id="cart-total">0</span></p>
+    <button class="btn btn-primary" onclick="checkout()">สั่งซื้อ</button>
+    <div id="qr-code"></div>
+    <div id="payment-status"></div>
+  </div>
+
+  <!-- Admin Login Section -->
+  <div id="admin-section" class="container hidden">
+    <h2>เข้าสู่ระบบแอดมิน</h2>
+    <input type="password" id="admin-password" placeholder="รหัสผ่าน">
+    <button class="btn btn-primary" onclick="checkAdmin()">เข้าสู่ระบบ</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="admin-panel" class="container hidden">
+    <h2>จัดการสินค้า</h2>
+    <button class="btn btn-primary" onclick="logoutAdmin()">ออกจากระบบ</button>
+    <button class="btn btn-primary" onclick="addNewProduct()">เพิ่มสินค้าใหม่</button>
+    <table>
+      <tr>
+        <th>ชื่อ</th>
+        <th>ราคา</th>
+        <th>สต็อก</th>
+        <th>แก้ไข</th>
+        <th>+1</th>
+        <th>-1</th>
+        <th>ลบ</th>
+      </tr>
+      <tbody id="admin-product-list"></tbody>
+    </table>
+    <h2>รายการสั่งซื้อ</h2>
+    <table>
+      <tr>
+        <th>ชื่อสินค้า</th>
+        <th>จำนวน</th>
+        <th>ยอดรวม</th>
+        <th>สถานะ</th>
+        <th>จัดการ</th>
+      </tr>
+      <tbody id="admin-order-list"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // โหลดข้อมูลจาก localStorage ถ้ามี ไม่มีก็ใช้ค่าเริ่มต้น
+    let products = JSON.parse(localStorage.getItem("products")) || [
+      { id: 1, name: "สินค้า A", price: 500, stock: 5 },
+      { id: 2, name: "สินค้า B", price: 300, stock: 2 }
+    ];
+    let users = JSON.parse(localStorage.getItem("users")) || [];
+    let orders = JSON.parse(localStorage.getItem("orders")) || [];
+    // โหลดตะกร้าสินค้า (cart) ถ้ามีอยู่
+    let cart = JSON.parse(localStorage.getItem("cart")) || [];
+    let isAdmin = false;
+    let loggedInUser = null;
+
+    // ฟังก์ชันบันทึกข้อมูลลง localStorage
+    function saveProducts() {
+      localStorage.setItem("products", JSON.stringify(products));
+    }
+    function saveUsers() {
+      localStorage.setItem("users", JSON.stringify(users));
+    }
+    function saveOrders() {
+      localStorage.setItem("orders", JSON.stringify(orders));
+    }
+    function saveCart() {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    }
+
+    // ฟังก์ชันแสดงรายการสินค้า
+    function renderProducts() {
+      let html = "";
+      products.forEach((p, index) => {
+        let stockWarning = p.stock < 3 ? `<span class="low-stock">(สินค้าเหลือน้อย!)</span>` : "";
+        html += `<div class="product">
+          <h3>${p.name}</h3>
+          <p>฿${p.price}</p>
+          <p>สต็อก: ${p.stock} ${stockWarning}</p>
+          <button class="btn btn-primary" onclick="addToCart(${index})" ${p.stock === 0 ? "disabled" : ""}>เพิ่มในตะกร้า</button>
+        </div>`;
+      });
+      document.getElementById("product-list").innerHTML = html;
+    }
+
+    // ฟังก์ชันแสดงตะกร้าสินค้า
+    function renderCart() {
+      let html = "";
+      let total = 0;
+      cart.forEach(p => {
+        html += `<p>${p.name} x${p.qty} = ฿${p.price * p.qty}</p>`;
+        total += p.price * p.qty;
+      });
+      document.getElementById("cart-items").innerHTML = html;
+      document.getElementById("cart-total").innerText = total;
+      saveCart();
+    }
+
+    // เพิ่มสินค้าในตะกร้า
+    function addToCart(index) {
+      let product = products[index];
+      let found = cart.find(p => p.id === product.id);
+      if (found) {
+        if (found.qty < product.stock) {
+          found.qty++;
+        }
+      } else {
+        cart.push({ ...product, qty: 1 });
+      }
+      renderCart();
+    }
+
+    // ฟังก์ชันสั่งซื้อ
+    function checkout() {
+      let total = parseInt(document.getElementById("cart-total").innerText);
+      if (total > 0 && loggedInUser) {
+        generateQRCode(total);
+      } else if (!loggedInUser) {
+        alert("กรุณาล็อกอินก่อนสั่งซื้อ");
+      } else {
+        alert("กรุณาเพิ่มสินค้าในตะกร้าก่อน");
+      }
+    }
+
+    // สร้าง QR Code สำหรับ TrueMoney
+    function generateQRCode(amount) {
+      let paymentDetails = `ชำระเงิน ฿${amount} ผ่าน TrueMoney เบอร์ 0625529862`;
+      let qrContainer = document.getElementById("qr-code");
+      qrContainer.innerHTML = "";
+      QRCode.toCanvas(qrContainer, paymentDetails, function(error) {
+        if (error) {
+          console.error(error);
+        } else {
+          console.log("QR Code generated!");
+        }
+      });
+      let paymentDiv = document.getElementById("payment-status");
+      payment
