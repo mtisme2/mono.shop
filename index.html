@@ -1,14 +1,12 @@
-
 <!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mono Shop</title>
-  <!-- QRCode Library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <style>
-    /* CSS พื้นฐาน */
+    /* สไตล์พื้นฐาน */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
     body { background-color: #f8f8f8; text-align: center; }
     header { background: #ff69b4; color: white; padding: 20px; font-size: 24px; }
@@ -21,8 +19,6 @@
     .low-stock { color: red; font-weight: bold; }
     input { padding: 5px; margin: 5px; }
     .order-status { font-weight: bold; }
-    table { border-collapse: collapse; width: 100%; }
-    table, th, td { border: 1px solid #ddd; padding: 8px; }
   </style>
 </head>
 <body>
@@ -58,19 +54,19 @@
     <div id="payment-status"></div>
   </div>
 
-  <!-- Admin Login Section -->
+  <!-- Admin Section -->
+  <!-- ส่วนล็อกอินแอดมิน -->
   <div id="admin-section" class="container hidden">
     <h2>เข้าสู่ระบบแอดมิน</h2>
     <input type="password" id="admin-password" placeholder="รหัสผ่าน">
     <button class="btn btn-primary" onclick="checkAdmin()">เข้าสู่ระบบ</button>
   </div>
-
-  <!-- Admin Panel -->
+  <!-- แผงจัดการแอดมิน -->
   <div id="admin-panel" class="container hidden">
     <h2>จัดการสินค้า</h2>
     <button class="btn btn-primary" onclick="logoutAdmin()">ออกจากระบบ</button>
     <button class="btn btn-primary" onclick="addNewProduct()">เพิ่มสินค้าใหม่</button>
-    <table>
+    <table border="1" width="100%">
       <tr>
         <th>ชื่อ</th>
         <th>ราคา</th>
@@ -83,7 +79,7 @@
       <tbody id="admin-product-list"></tbody>
     </table>
     <h2>รายการสั่งซื้อ</h2>
-    <table>
+    <table border="1" width="100%">
       <tr>
         <th>ชื่อสินค้า</th>
         <th>จำนวน</th>
@@ -96,31 +92,16 @@
   </div>
 
   <script>
-    // โหลดข้อมูลจาก localStorage ถ้ามี ไม่มีก็ใช้ค่าเริ่มต้น
-    let products = JSON.parse(localStorage.getItem("products")) || [
+    // ข้อมูลสินค้า, ตะกร้า, ออเดอร์, ผู้ใช้ และสถานะแอดมิน
+    let products = [
       { id: 1, name: "สินค้า A", price: 500, stock: 5 },
       { id: 2, name: "สินค้า B", price: 300, stock: 2 }
     ];
-    let users = JSON.parse(localStorage.getItem("users")) || [];
-    let orders = JSON.parse(localStorage.getItem("orders")) || [];
-    // โหลดตะกร้าสินค้า (cart) ถ้ามีอยู่
-    let cart = JSON.parse(localStorage.getItem("cart")) || [];
+    let cart = [];
+    let orders = [];
     let isAdmin = false;
     let loggedInUser = null;
-
-    // ฟังก์ชันบันทึกข้อมูลลง localStorage
-    function saveProducts() {
-      localStorage.setItem("products", JSON.stringify(products));
-    }
-    function saveUsers() {
-      localStorage.setItem("users", JSON.stringify(users));
-    }
-    function saveOrders() {
-      localStorage.setItem("orders", JSON.stringify(orders));
-    }
-    function saveCart() {
-      localStorage.setItem("cart", JSON.stringify(cart));
-    }
+    let users = [];
 
     // ฟังก์ชันแสดงรายการสินค้า
     function renderProducts() {
@@ -137,7 +118,7 @@
       document.getElementById("product-list").innerHTML = html;
     }
 
-    // ฟังก์ชันแสดงตะกร้าสินค้า
+    // ฟังก์ชันแสดงรายการสินค้าในตะกร้า
     function renderCart() {
       let html = "";
       let total = 0;
@@ -147,7 +128,6 @@
       });
       document.getElementById("cart-items").innerHTML = html;
       document.getElementById("cart-total").innerText = total;
-      saveCart();
     }
 
     // เพิ่มสินค้าในตะกร้า
@@ -155,9 +135,7 @@
       let product = products[index];
       let found = cart.find(p => p.id === product.id);
       if (found) {
-        if (found.qty < product.stock) {
-          found.qty++;
-        }
+        if (found.qty < product.stock) found.qty++;
       } else {
         cart.push({ ...product, qty: 1 });
       }
@@ -176,17 +154,181 @@
       }
     }
 
-    // สร้าง QR Code สำหรับ TrueMoney
+    // สร้าง QR Code สำหรับ TrueMoney พร้อมแสดงข้อความและปุ่ม "ชำระแล้ว"
     function generateQRCode(amount) {
       let paymentDetails = `ชำระเงิน ฿${amount} ผ่าน TrueMoney เบอร์ 0625529862`;
       let qrContainer = document.getElementById("qr-code");
       qrContainer.innerHTML = "";
       QRCode.toCanvas(qrContainer, paymentDetails, function(error) {
-        if (error) {
-          console.error(error);
-        } else {
-          console.log("QR Code generated!");
-        }
+        if (error) console.error(error);
+        console.log("QR Code generated!");
       });
       let paymentDiv = document.getElementById("payment-status");
-      payment
+      paymentDiv.innerHTML = `<p>TrueMoney: 0625529862</p><p>จำนวนเงิน: ฿${amount}</p>`;
+      if (!document.getElementById("payment-completed-btn")) {
+        let btn = document.createElement("button");
+        btn.className = "btn btn-success";
+        btn.id = "payment-completed-btn";
+        btn.innerText = "ชำระแล้ว";
+        btn.onclick = paymentCompleted;
+        paymentDiv.appendChild(btn);
+      }
+    }
+
+    // เมื่อกดปุ่ม "ชำระแล้ว"
+    function paymentCompleted() {
+      let total = parseInt(document.getElementById("cart-total").innerText);
+      document.getElementById("payment-status").innerHTML = `<span style="color: green;">ชำระเงินแล้ว</span> <input type="checkbox" checked disabled>`;
+      addOrder(total);
+    }
+
+    // เพิ่มออเดอร์ใหม่หลังจากชำระเงินสำเร็จ
+    function addOrder(amount) {
+      let order = { items: [...cart], total: amount, status: 'รอการยืนยัน', user: loggedInUser };
+      orders.push(order);
+      cart = [];
+      renderCart();
+      if (isAdmin) {
+        renderAdminOrders();
+      }
+    }
+
+    // ระบบล็อกอินสำหรับผู้ใช้ทั่วไป
+    function openLogin() {
+      document.querySelector(".login-section").style.display = "block";
+    }
+    function login() {
+      let username = document.getElementById("username").value;
+      let password = document.getElementById("password").value;
+      let user = users.find(u => u.username === username && u.password === password);
+      if (user) {
+        loggedInUser = user;
+        alert("เข้าสู่ระบบสำเร็จ");
+        document.querySelector(".login-section").style.display = "none";
+      } else {
+        alert("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+      }
+    }
+    function register() {
+      let username = prompt("กรุณากรอกชื่อผู้ใช้:");
+      let password = prompt("กรุณากรอกรหัสผ่าน:");
+      if (username && password) {
+        users.push({ username, password });
+        alert("สมัครสมาชิกสำเร็จ");
+      }
+    }
+
+    // ระบบแอดมิน
+    function openAdminLogin() {
+      // แก้ไขส่วนนี้ให้ใช้ getElementById เพื่อเปิดส่วนแอดมินได้ถูกต้อง
+      document.getElementById("admin-section").style.display = "block";
+    }
+    function checkAdmin() {
+      let pass = document.getElementById("admin-password").value;
+      if (pass === "Admin123") {
+        isAdmin = true;
+        document.getElementById("admin-section").style.display = "none";
+        document.getElementById("admin-panel").style.display = "block";
+        renderAdminPanel();
+        renderAdminOrders();
+      } else {
+        alert("รหัสผ่านไม่ถูกต้อง!");
+      }
+    }
+    function logoutAdmin() {
+      isAdmin = false;
+      document.getElementById("admin-panel").style.display = "none";
+      document.getElementById("admin-section").style.display = "none";
+    }
+    
+    // แสดงรายการสินค้าในแผงแอดมิน
+    function renderAdminPanel() {
+      let html = "";
+      products.forEach((p, index) => {
+        let stockWarning = p.stock < 3 ? `<span class="low-stock">(สินค้าเหลือน้อย!)</span>` : "";
+        html += `<tr>
+          <td><input type="text" value="${p.name}" onchange="editProduct(${index}, 'name', this.value)"></td>
+          <td><input type="number" value="${p.price}" onchange="editProduct(${index}, 'price', this.value)"></td>
+          <td>${p.stock} ${stockWarning}</td>
+          <td><button class="btn btn-primary" onclick="updateStock(${index}, 1)">+1</button></td>
+          <td><button class="btn btn-danger" onclick="updateStock(${index}, -1)">-1</button></td>
+          <td><button class="btn btn-danger" onclick="deleteProduct(${index})">ลบ</button></td>
+        </tr>`;
+      });
+      document.getElementById("admin-product-list").innerHTML = html;
+    }
+    // แสดงรายการออเดอร์ในแผงแอดมิน
+    function renderAdminOrders() {
+      let html = "";
+      orders.forEach((order, index) => {
+        let totalQty = order.items.reduce((sum, item) => sum + item.qty, 0);
+        html += `<tr>
+          <td>${order.items.map(i => i.name).join(', ')}</td>
+          <td>${totalQty}</td>
+          <td>฿${order.total}</td>
+          <td class="order-status">${order.status}</td>
+          <td>
+            ${order.status === 'รอการยืนยัน' ? `
+              <button class="btn btn-success" onclick="acceptOrder(${index})">รับออเดอร์</button>
+              <button class="btn btn-danger" onclick="cancelOrder(${index})">ยกเลิก</button>
+            ` : ''}
+          </td>
+        </tr>`;
+      });
+      document.getElementById("admin-order-list").innerHTML = html;
+    }
+    function acceptOrder(index) {
+      orders[index].status = 'รับออเดอร์แล้ว';
+      renderAdminOrders();
+    }
+    function cancelOrder(index) {
+      let reason = prompt("ระบุเหตุผลการยกเลิก:");
+      if (reason) {
+        orders[index].status = `ยกเลิก: ${reason}`;
+        renderAdminOrders();
+      }
+    }
+    function editProduct(index, field, value) {
+      if (field === 'price') {
+        value = parseFloat(value);
+        if (isNaN(value) || value < 0) {
+          alert("ราคาต้องเป็นตัวเลขและมากกว่า 0");
+          return;
+        }
+      }
+      products[index][field] = value;
+      renderAdminPanel();
+      renderProducts();
+    }
+    function updateStock(index, delta) {
+      products[index].stock += delta;
+      if (products[index].stock < 0) products[index].stock = 0;
+      renderAdminPanel();
+      renderProducts();
+    }
+    function deleteProduct(index) {
+      if (confirm("คุณแน่ใจหรือว่าต้องการลบสินค้านี้?")) {
+        products.splice(index, 1);
+        renderAdminPanel();
+        renderProducts();
+      }
+    }
+    function addNewProduct() {
+      let name = prompt("ชื่อสินค้า:");
+      let price = parseFloat(prompt("ราคาสินค้า:"));
+      let stock = parseInt(prompt("จำนวนสต็อก:"));
+      if (name && !isNaN(price) && !isNaN(stock)) {
+        products.push({ id: Date.now(), name, price, stock });
+        renderAdminPanel();
+        renderProducts();
+      } else {
+        alert("ข้อมูลไม่ถูกต้อง");
+      }
+    }
+    
+    // เรียกฟังก์ชันเริ่มต้น
+    renderProducts();
+    renderCart();
+  </script>
+</body>
+</html>
